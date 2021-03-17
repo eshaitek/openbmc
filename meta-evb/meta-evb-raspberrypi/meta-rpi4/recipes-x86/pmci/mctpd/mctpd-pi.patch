@@ -1,0 +1,81 @@
+diff --git a/mctpd/include/SMBusBinding.hpp b/mctpd/include/SMBusBinding.hpp
+index ab19326..2d987a0 100644
+--- a/mctpd/include/SMBusBinding.hpp
++++ b/mctpd/include/SMBusBinding.hpp
+@@ -5,6 +5,13 @@
+ #include <libmctp-smbus.h>
+ 
+ #include <iostream>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
+ 
+ class SMBusBinding : public MctpBinding
+ {
+diff --git a/mctpd/src/SMBusBinding.cpp b/mctpd/src/SMBusBinding.cpp
+index 1760a28..70628f5 100644
+--- a/mctpd/src/SMBusBinding.cpp
++++ b/mctpd/src/SMBusBinding.cpp
+@@ -85,7 +85,7 @@ void SMBusBinding::scanPort(const int scanFd)
+         deviceMap.insert(std::make_pair(scanFd, it));
+     }
+ }
+-
++#ifdef NOT_TCP
+ static bool isNum(const std::string& s)
+ {
+     if (s.empty())
+@@ -160,6 +160,7 @@ static bool isMuxBus(const std::string& bus)
+     return is_symlink(
+         fs::path("/sys/bus/i2c/devices/i2c-" + bus + "/mux_device"));
+ }
++#endif
+ 
+ /*
+  * dstEid can't be removed because this is a callback passed to libmctp and we
+@@ -285,7 +286,32 @@ void SMBusBinding::SMBusInit()
+ 
+     mctp_set_rx_all(mctp, &MctpBinding::rxMessage,
+                     static_cast<MctpBinding*>(this));
++    //socket的建立
++    int sockfd = 0;
++    sockfd = socket(AF_INET , SOCK_STREAM , 0);
++
++    if (sockfd == -1){
++        printf("Fail to create a socket.");
++    }
++
++    //socket的連線
++
++    struct sockaddr_in info;
++    bzero(&info,sizeof(info));
++    info.sin_family = PF_INET;
+ 
++    //localhost test
++    info.sin_addr.s_addr = inet_addr("127.0.0.1");
++    info.sin_port = htons(8700);
++
++
++    int err = connect(sockfd, reinterpret_cast< struct sockaddr *>(&info),sizeof(info));
++    if(err==-1){
++        printf("Connection error");
++    }else
++        inFd = outFd = sockfd;
++
++#if 0
+     std::string rootPort;
+     if (!getBusNumFromPath(bus, rootPort))
+     {
+@@ -370,7 +396,7 @@ void SMBusBinding::SMBusInit()
+             muxFds.push_back(entry);
+         }
+     }
+-
++#endif
+     mctp_smbus_set_in_fd(smbus, inFd);
+     mctp_smbus_set_out_fd(smbus, outFd);
+ 

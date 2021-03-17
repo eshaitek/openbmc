@@ -1,0 +1,101 @@
+diff --git a/smbus.c b/smbus.c
+index 9b164e1..e8a06a9 100644
+--- a/smbus.c
++++ b/smbus.c
+@@ -7,6 +7,10 @@
+ #include <string.h>
+ #include <unistd.h>
+ 
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++
+ #ifdef MCTP_HAVE_FILEIO
+ #include <fcntl.h>
+ #endif
+@@ -97,6 +101,9 @@ static uint8_t calculate_pec_byte(uint8_t *buf, size_t len, uint8_t address)
+ static int mctp_smbus_tx(struct mctp_binding_smbus *smbus, const uint8_t len,
+ 			 struct mctp_smbus_extra_params *pkt_pvt)
+ {
++	int ret = send(smbus->out_fd,&len,sizeof(uint8_t),0);
++	ret = send(smbus->out_fd,smbus->txbuf,len,0);
++	return ret;
+ #ifdef I2C_M_HOLD
+ 	int rc;
+ 	if (pkt_pvt->muxFlags) {
+@@ -160,14 +167,14 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
+ 	struct mctp_smbus_extra_params *pkt_pvt =
+ 		(struct mctp_smbus_extra_params *)pkt->msg_binding_private;
+ 	struct mctp_hdr *mctp_hdr = (void *)(&pkt->data[pkt->start]);
+-
++#if 0
+ #ifdef I2C_M_HOLD
+ 	/* Set muxFlags only for EOM packets */
+ 	if (!(mctp_hdr->flags_seq_tag & MCTP_HDR_FLAG_EOM)) {
+ 		pkt_pvt->muxFlags = 0;
+ 	}
+ #endif
+-
++#endif
+ 	smbus_hdr_tx->command_code = MCTP_COMMAND_CODE;
+ 	if (!pkt_pvt) {
+ 		mctp_prerr("Binding private information not available");
+@@ -176,9 +183,9 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
+ 	/* the length field in the header excludes smbus framing
+      * and escape sequences */
+ 	size_t pkt_length = mctp_pktbuf_size(pkt);
+-	smbus_hdr_tx->byte_count = pkt_length + 1;
++	smbus_hdr_tx->byte_count = pkt_length;// + 1;
+ 	smbus_hdr_tx->source_slave_address = MCTP_SOURCE_SLAVE_ADDRESS;
+-
++/*
+ 	size_t txBufLen = sizeof(*smbus_hdr_tx);
+ 	uint8_t i2c_message_len = txBufLen + pkt_length + SMBUS_PEC_BYTE_SIZE;
+ 	if (i2c_message_len > sizeof(smbus->txbuf)) {
+@@ -186,14 +193,14 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
+ 			"tx message length exceeds max smbus message length");
+ 		return -1;
+ 	}
+-
+-	memcpy(smbus->txbuf + txBufLen, &pkt->data[pkt->start], pkt_length);
+-	txBufLen += pkt_length;
+-
++*/
++	memcpy(smbus->txbuf, &pkt->data[pkt->start], pkt_length);
++	//txBufLen += pkt_length;
++/*
+ 	smbus->txbuf[txBufLen] =
+ 		calculate_pec_byte(smbus->txbuf, txBufLen, pkt_pvt->slave_addr);
+-
+-	if (mctp_smbus_tx(smbus, i2c_message_len, pkt_pvt) < 0) {
++*/
++	if (mctp_smbus_tx(smbus, pkt_length, pkt_pvt) < 0) {
+ 		mctp_prerr("Error in tx of smbus message");
+ 		return -1;
+ 	}
+@@ -205,6 +212,7 @@ static int mctp_binding_smbus_tx(struct mctp_binding *b,
+ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
+ {
+ 	ssize_t len = 0;
++	uint8_t rsp_size;
+ 	struct mctp_smbus_header_rx *smbus_hdr_rx;
+ 	struct mctp_smbus_extra_params pvt_data;
+ #ifdef I2C_M_HOLD
+@@ -212,6 +220,8 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
+ 	bool eom = false;
+ #endif
+ 
++	len = read(smbus->in_fd, &rsp_size, sizeof(uint8_t));
++	
+ 	smbus_hdr_rx = (void *)smbus->rxbuf;
+ 	int ret = lseek(smbus->in_fd, 0, SEEK_SET);
+ 	if (ret < 0) {
+@@ -221,7 +231,7 @@ int mctp_smbus_read(struct mctp_binding_smbus *smbus)
+ 
+ 	len = read(smbus->in_fd, smbus->rxbuf, sizeof(smbus->rxbuf));
+ 
+-	if (len < 0 || len < sizeof(*smbus_hdr_rx)) {
++	if (len < 0 || len < sizeof(*smbus_hdr_rx) || len != rsp_size) {
+ 		mctp_prerr("Failed to read");
+ 		return -1;
+ 	}
