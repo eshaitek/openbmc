@@ -3,7 +3,7 @@ DESCRIPTION = "PLDM Sensor Services Configured from D-Bus"
 
 SRC_URI = "git://github.com/eshaitek/pldmsensors"
 
-SRCREV = "33038f1b027d589304f87754fd6fc09df9a272b9"
+SRCREV = "00abf30a446213d9d84f62f450df8ab189bbea14"
 
 PV = "0.1+git${SRCPV}"
 
@@ -21,9 +21,9 @@ EXTRA_OECMAKE = "-DYOCTO=1"
 
 FILESEXTRAPATHS_prepend_raspberrypi4 := "${THISDIR}/${PN}:"
 
-SRC_URI += "file://pldmsensors.json "
+SRC_URI += "file://pldm.json "
 
 do_install_append_raspberrypi4() {
     install -d ${D}${sysconfdir}/default
-    install -m 0644 ${WORKDIR}/pldmsensors.json ${D}${sysconfdir}/default
+    install -m 0644 ${WORKDIR}/pldm.json ${D}${sysconfdir}/default
 }

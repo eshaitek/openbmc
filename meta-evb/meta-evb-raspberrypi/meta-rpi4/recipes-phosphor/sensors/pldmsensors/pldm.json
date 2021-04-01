@@ -1,0 +1,23 @@
+{
+  "numeric_sensor":[
+      {
+          "sensorID":1,
+          "sensorTypeName":"temperature",
+          "objectType":"xyz.openbmc_project.Configuration.PLDMtemperature",
+          "sensorName":"PLDM_Temp0",
+          "sensorUnit":"DegreesC",
+          "sensorDataSize":"UINT16",
+          "sensorScale":0,
+          "factor":"0.001",
+          "rearmEventState":"false",
+          "powerState":"Standby",
+          "upperThresholdWarning":"60000",
+          "upperThresholdCritical":"70000",
+          "upperThresholdFatal":"80000",
+          "lowerThresholdWarning":"15000",
+          "lowerThresholdCritical":"10000",
+          "lowerThresholdFatal":"5000",
+          "hysteresis":3
+      }
+  ]
+}
