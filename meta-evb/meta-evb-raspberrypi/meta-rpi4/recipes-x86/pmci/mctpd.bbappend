@@ -4,7 +4,7 @@ SMBUS_BINDING = "smbus"
 
 SRC_URI = "git://github.com/eshaitek/pmci.git;protocol=ssh"
 
-SRCREV = "ada691a313b6abdfde72a700cebe76bb4ee960d1"
+SRCREV = "3bb6ed2b94372680e53850be81beb790cfea26a8"
 
 SRC_URI_append = " file://mctp_config.json"
 #SRC_URI_append = " file://mctpd-pi.patch"
