@@ -27,7 +27,7 @@ ENABLE_UART = "1"
 
 KERNEL_FEATURES_remove = "phosphor-gpio-keys"
 
-IMAGE_INSTALL_append = " pigpio phosphor-webui obmc-console pldmsensors"
+IMAGE_INSTALL_append = " pigpio phosphor-webui obmc-console pldmsensors mctpd phosphor-mctp-server"
 
 # Set the root password to '0penBmc'
 INHERIT += "extrausers"
