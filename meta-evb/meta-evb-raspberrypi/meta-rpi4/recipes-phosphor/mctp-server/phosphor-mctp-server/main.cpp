@@ -8,8 +8,7 @@
 #include <sys/errno.h>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-const char * sensor_path[]={	"/home/root/pldm-over-lan/uint8",
-								"/sys/class/hwmon/hwmon0/temp1_input"
+const char * sensor_path[]={	"/sys/class/hwmon/hwmon0/temp1_input"
 						};
 
 typedef uint8_t	bool8_t;
@@ -258,14 +257,18 @@ int read_sensor_data(int id, char *ptr, size_t size){
 	FILE *pFile;
 	int nr_set = ARRAY_SIZE(sensor_path);
 	printf("sensor_path nr:%d\n",nr_set);
-	pFile = fopen(sensor_path[0],"r");
+	if(id>nr_set) {
+		printf("No such ID node\n");
+		return -1;
+	}
+	pFile = fopen(sensor_path[id-1],"r");
 	if (pFile == NULL) {
-		printf("fopen fail:%d[%s](%s) \n",errno,strerror(errno),sensor_path[id]);
+		printf("fopen fail:%d[%s](%s) \n",errno,strerror(errno),sensor_path[id-1]);
 		return -1;
 	}else if(size>0){
 		fread(ptr, size, 1, pFile);
 	}else{
-		printf("clear %s\n",sensor_path[id]);
+		printf("clear %s\n",sensor_path[id-1]);
 	}
 	fclose(pFile);
 	return 0;
@@ -382,15 +385,15 @@ int get_numeric_sensor_reading(int forClientSockfd, struct pldm_msg *msg,
 		return -1;
 	}
 
-	printf("retsensorId:%04x\n",retsensorId);
-	printf("retrearmEventState:%02x\n",retrearmEventState);
+	printf("sensorId:%04x\n",retsensorId);
+	printf("rearmEventState:%02x\n",retrearmEventState);
 
-	if(retsensorId==0x2)
+	if(retsensorId==0x1)
 	{
 		char readdata[1024]={0};
-		read_sensor_data(1,readdata,sizeof(readdata));
-		printf("readdata:%s\n",readdata);
-		printf("readdata:%d\n",atoi(readdata));
+		read_sensor_data(retsensorId,readdata,sizeof(readdata));
+		printf("readdata-string:%s\n",readdata);
+		printf("readdata-int:%d\n",atoi(readdata));
 
 		uint8_t tmp_uint8_t = atoi(readdata);
 		printf("tmp_uint8_t:%d\n",tmp_uint8_t);
@@ -436,6 +439,11 @@ int get_numeric_sensor_reading(int forClientSockfd, struct pldm_msg *msg,
 		send(forClientSockfd,&responseSize,sizeof(responseSize),0);
 		send(forClientSockfd,responseMsg,responseSize,0);
 	}
+	else{
+		printf("Non-Support sensorId:%d",retsensorId);
+		uint8_t responseSize = 0;
+		send(forClientSockfd,&responseSize,sizeof(responseSize),0);
+	}
 
 	return rc;
 }
@@ -444,6 +452,8 @@ int get_state_effecter_reading(int forClientSockfd, struct pldm_msg *msg,
 				  size_t payload_length, uint8_t mctp_header[], uint8_t instance_id)
 {
 	printf("get_state_effecter_reading is not implemented yet\n");
+	uint8_t responseSize = 0;
+	send(forClientSockfd,&responseSize,sizeof(responseSize),0);
 	return 1;
 }
 
@@ -477,7 +487,6 @@ int main(int argc , char *argv[])
     serverInfo.sin_port = htons(8700);
     bind(sockfd_in,(struct sockaddr *)&serverInfo,sizeof(serverInfo));
     listen(sockfd_in,5);
-
 
 //-------------------------------------------------------------------------------------
     int sockfd_out = 0,forClientSockfd_out = 0;
@@ -558,16 +567,18 @@ int main(int argc , char *argv[])
 
 		//State Effecter
 		#define GetStateEffecterStates 0x3A
-		if(pldm_hdr->command ==GetStateEffecterStates )
+		if(pldm_hdr->command ==GetStateEffecterStates ){
+			printf("PLDM cmd is GetStateEffecterStates\n");
 			get_state_effecter_reading(forClientSockfd_out, (struct pldm_msg *)pldmmsg, recv_cnt-hdrSize, mctp_header, pldm_hdr->instance_id);
-		else if(pldm_hdr->command == GetSensorReading)
+		}else if(pldm_hdr->command == GetSensorReading){
+			printf("PLDM cmd is GetSensorReading\n");
 			get_numeric_sensor_reading(forClientSockfd_out, (struct pldm_msg *)pldmmsg, recv_cnt-hdrSize, mctp_header, pldm_hdr->instance_id);
+		}else{
+			printf("Non-Support PLDM cmd\n");
+			uint8_t responseSize = 0;
+			send(forClientSockfd_out,&responseSize,sizeof(responseSize),0);
+		}
 
-		//uint8_t resp_size = sizeof(message);
-		//send(forClientSockfd,&resp_size,sizeof(resp_size),0);
-		//send(forClientSockfd,message,sizeof(message),0);
-		//[0x01 0x08 0x00 0xC1:MCTP] [0x01 0x19 0x02 0x3A 0x00 0x01 0x01 0x02 0x02:PLDM]
-
-    }
-    return 0;
+	}
+	return 0;
 }
